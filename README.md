@@ -106,7 +106,9 @@ python tests/mpi_local_io/regression.py \
   --cmc build/src/cmc/cmc --work /tmp/cmc-mpi-comparison
 ```
 
-GitHub Actions 会在推送 `main` 和创建 PR 后编译并运行散射核与 SIDM 集成测试。
+GitHub Actions 仅手动触发：在仓库的 Actions 页面选择 `CMC SIDM build and tests`，
+点击 `Run workflow`。普通提交、推送和 PR 不会自动启动云端测试。
+本地编译和上述测试命令照常可用。
 
 ## 日常更新
 
