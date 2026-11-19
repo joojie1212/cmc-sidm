@@ -116,6 +116,7 @@ int main(int argc, char *argv[])
 	if(RESTART_TCOUNT == 0){
 		/* MPI: Populating Start and End arrays based on data partitioning scheme */
 		findLimits( cfd.NOBJ, MIN_CHUNK_SIZE );
+        if (INPUT_HDF5_LOCAL) cmc_read_local_particles();
 
 		/* copy the input data which has been read from the input file into the cfd struct in parser() into the star and binary data structures */
 		get_star_data(argc, argv, rng);
@@ -217,17 +218,7 @@ int main(int argc, char *argv[])
 		if (STELLAR_EVOLUTION > 0) {
 			mpiFindDispAndLenCustom( clus.N_MAX, MIN_CHUNK_SIZE, mpiDisp, mpiLen );
 
-			for(i=0;i<procs;i++)
-				mpiLen[i] *= sizeof(double); 
-
-			//MPI: Can be replaced by AllGatherv similar to the way it's done after sorting in post_sort_comm.
-			MPI_Status stat;
-			if(myid!=0)
-				MPI_Send(&star_m[mpiDisp[myid]], mpiLen[myid], MPI_BYTE, 0, 0, MPI_COMM_WORLD);
-			else
-				for(i=1;i<procs;i++)
-					MPI_Recv(&star_m[mpiDisp[i]], mpiLen[i], MPI_BYTE, i, 0, MPI_COMM_WORLD, &stat);
-			MPI_Bcast(star_m, clus.N_MAX+1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+            cmc_globals_gather(CMC_GLOBAL_M, star_m+mpiDisp[myid], mpiLen, mpiDisp);
 		}
 		timeEndSimple(tmpTimeStart, &t_comm);
 	}
@@ -459,6 +450,7 @@ int main(int argc, char *argv[])
 	g_array_free(id_array, TRUE);
 #endif
 
+	cmc_globals_finalize();
 	MPI_Finalize();
 
 	return(0);

@@ -78,7 +78,7 @@ void load_fits_file_data(void)
 	for (i=0; i<=End[myid] - Start[myid]+1; i++) {
 		//MPI: Getting global index to read only stars that belong to this processor.
 		if(i==0) g_i = 0;
-		else g_i = get_global_idx(i);
+		else g_i = INPUT_HDF5_LOCAL ? i : get_global_idx(i);
 		star[i].id = cfd.obj_id[g_i];
 		if (star[i].id > newstarid) {
 			newstarid = star[i].id;
@@ -118,11 +118,38 @@ void load_fits_file_data(void)
 
 	N_b_local = b_i-1;
 
-	//MPI: All procs read data for global arrays.
-	for (i=0; i<=cfd.NOBJ+1; i++) {
-		star_m[i] = cfd.obj_m[i] * ((double) clus.N_STAR);
-		star_r[i] = cfd.obj_r[i];
-	}
+    if (INPUT_HDF5_LOCAL) {
+        long n = End[myid] - Start[myid] + 1;
+        for (int rank = 0; rank < procs; ++rank) {
+            mpiLen[rank] = End[rank] - Start[rank] + 1;
+            mpiDisp[rank] = Start[rank];
+        }
+        for (long j = 1; j <= n; ++j) {
+            star_m[Start[myid]+j-1] = cfd.obj_m[j] * ((double) clus.N_STAR);
+            star_r[Start[myid]+j-1] = cfd.obj_r[j];
+        }
+        cmc_globals_gather(CMC_GLOBAL_M, star_m+mpiDisp[myid], mpiLen, mpiDisp);
+        cmc_globals_gather(CMC_GLOBAL_R, star_r+mpiDisp[myid], mpiLen, mpiDisp);
+        star_m[0] = cfd.obj_m[0] * ((double) clus.N_STAR);
+        star_r[0] = cfd.obj_r[0];
+        star_m[cfd.NOBJ+1] = cfd.obj_m[n+1] * ((double) clus.N_STAR);
+        star_r[cfd.NOBJ+1] = cfd.obj_r[n+1];
+        /* No input particle arrays are needed after initialization. */
+        cmc_free_fits_data_t(&cfd);
+    } else {
+        for (i=0; i<=cfd.NOBJ+1; i++) {
+            star_m[i] = cfd.obj_m[i] * ((double) clus.N_STAR);
+            star_r[i] = cfd.obj_r[i];
+        }
+        if (cmc_globals_shared()) {
+            for (int rank=0; rank<procs; ++rank) {
+                mpiLen[rank]=End[rank]-Start[rank]+1;
+                mpiDisp[rank]=Start[rank];
+            }
+            cmc_globals_gather(CMC_GLOBAL_M, star_m+mpiDisp[myid], mpiLen, mpiDisp);
+            cmc_globals_gather(CMC_GLOBAL_R, star_r+mpiDisp[myid], mpiLen, mpiDisp);
+        }
+    }
 
 	/* some assignments so the code won't break */
 	star_r[0] = ZERO; 

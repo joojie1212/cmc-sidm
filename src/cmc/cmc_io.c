@@ -2,6 +2,8 @@
 /* vi: set filetype=c.doxygen: */
 
 #include <stdio.h>
+#include <stdint.h>
+#include <limits.h>
 #include <stdarg.h>
 #include <stddef.h>
 #include <stdlib.h>
@@ -2083,11 +2085,14 @@ if(myid==0)
     parse_snapshot_windows(SNAPSHOT_WINDOWS);
 
 	/* read the number of stars and possibly other parameters */
-	/* MPI: Currently, all processors read the entire data (entire list of stars and binaries) from the file. The data partitioning is done in load_fits_file_data(). This might limit scalability since each node requires enough memory to store the entire data set. */
+	/* HDF5 reads metadata only here. Particle rows are read after findLimits().
+         * Legacy FITS retains its original reader. Restart reads metadata only. */
+        INPUT_HDF5_LOCAL = 0;
         char* point;
         if((point = strrchr(INPUT_FILE, '.')) != NULL ) {
             if((strcmp(point,".h5") == 0) | (strcmp(point,".hdf5") == 0)) {
-                cmc_read_hdf5_file(INPUT_FILE, &cfd, RESTART_TCOUNT);
+                INPUT_HDF5_LOCAL = 1;
+                cmc_read_local_header();
             }
             else if (strcmp(point,".fits") == 0){
 #ifdef USE_FITS
@@ -3480,9 +3485,7 @@ void get_star_data(int argc, char *argv[], gsl_rng *rng)
 void mpiInitGlobArrays()
 {
 	/*MPI: Allocating global/duplicated arrays that will be needed by all processors.*/
-	star_r = (double *) malloc(N_STAR_DIM * sizeof(double));
-	star_m = (double *) malloc(N_STAR_DIM * sizeof(double));
-	star_phi = (double *) malloc(N_STAR_DIM * sizeof(double));
+    cmc_globals_allocate();
 }
 
 void load_dynamical_friction_data()
@@ -3884,6 +3887,27 @@ void load_global_vars(restart_struct_t *rest){
 	cenma.E_new                            =rest->s_cenma_e_new;
 }
 
+/* Optional trailer on new checkpoints. Physics structs and their byte layout
+ * remain unchanged. Legacy checkpoints without this trailer are still accepted
+ * with their original dimensions, MPI count and ABI. */
+#define LOCAL_IO_RESTART_MAGIC UINT64_C(0x434d434c4f43414c)
+#define LOCAL_IO_RESTART_WORDS 9
+static void restart_io_fail(const char *message)
+{
+    fprintf(stderr, "rank %d: checkpoint: %s\n", myid, message);
+    MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+    abort();
+}
+
+#define RESTART_WRITE(ptr, size, count) do { \
+    if (fwrite((ptr), (size), (count), my_restart_file) != (size_t)(count)) \
+        restart_io_fail("short write (disk full or I/O error)"); \
+} while (0)
+#define RESTART_READ(ptr, size, count) do { \
+    if (fread((ptr), (size), (count), my_restart_file) != (size_t)(count)) \
+        restart_io_fail("truncated checkpoint"); \
+} while (0)
+
 void save_restart_file(){
 	FILE *my_restart_file;
 	char restart_file[200];
@@ -3917,14 +3941,20 @@ void save_restart_file(){
 	clus.N_BINARY = N_b;
 	save_global_vars(&restart_struct);
 
-	fwrite(curr_st, sizeof(struct rng_t113_state), 1, my_restart_file);
-	fwrite(&restart_struct, sizeof(restart_struct_t), 1, my_restart_file);
-	fwrite(&clus, sizeof(clus_struct_t), 1, my_restart_file);
-	fwrite(star, sizeof(star_t), N_STAR_DIM_OPT, my_restart_file);
-	fwrite(binary, sizeof(binary_t), N_BIN_DIM_OPT, my_restart_file);
-	fwrite(snapshot_window_counters, sizeof(int), snapshot_window_count, my_restart_file);
+	RESTART_WRITE(curr_st, sizeof(struct rng_t113_state), 1);
+	RESTART_WRITE(&restart_struct, sizeof(restart_struct_t), 1);
+	RESTART_WRITE(&clus, sizeof(clus_struct_t), 1);
+	RESTART_WRITE(star, sizeof(star_t), N_STAR_DIM_OPT);
+	RESTART_WRITE(binary, sizeof(binary_t), N_BIN_DIM_OPT);
+	RESTART_WRITE(snapshot_window_counters, sizeof(int), snapshot_window_count);
 
-	fclose(my_restart_file);
+    uint64_t trailer[LOCAL_IO_RESTART_WORDS] = {
+        LOCAL_IO_RESTART_MAGIC, 1, (uint64_t)procs, (uint64_t)myid,
+        (uint64_t)N_STAR_DIM_OPT, (uint64_t)N_BIN_DIM_OPT,
+        (uint64_t)snapshot_window_count, sizeof(star_t), sizeof(binary_t)
+    };
+    RESTART_WRITE(trailer, sizeof(trailer), 1);
+    if (fclose(my_restart_file)) restart_io_fail("cannot finish checkpoint write");
 
 	/*Delete the last restart (or the last after however many we want to keep)*/
 	long restart_to_delete = NEXT_RESTART - CHECKPOINTS_TO_KEEP;
@@ -3965,26 +3995,56 @@ void load_restart_file(){
 		exit_cleanly(-1, __FUNCTION__);
 	}
 
-	/*These must be allocated here for the binary files to load correctly*/
-	star = (star_t *) malloc(N_STAR_DIM_OPT*sizeof(star_t));
-	binary = (binary_t *) malloc(N_BIN_DIM_OPT*sizeof(binary_t));
-	curr_st = (struct rng_t113_state*) malloc(sizeof(struct rng_t113_state));
+    /* Inspect the trailer before allocating any particle arrays. Each rank reads
+     * only its own checkpoint; no initial particle/binary table is read here. */
+    uint64_t trailer[LOCAL_IO_RESTART_WORDS];
+    if (fseeko(my_restart_file, 0, SEEK_END)) restart_io_fail("cannot seek checkpoint");
+    off_t file_size = ftello(my_restart_file);
+    if (file_size < 0) restart_io_fail("cannot determine checkpoint size");
+    int has_trailer = 0;
+    if ((uint64_t)file_size >= sizeof(trailer)) {
+        if (fseeko(my_restart_file, -(off_t)sizeof(trailer), SEEK_END))
+            restart_io_fail("cannot seek checkpoint trailer");
+        RESTART_READ(trailer, sizeof(trailer), 1);
+        has_trailer = trailer[0] == LOCAL_IO_RESTART_MAGIC;
+    }
+    if (has_trailer) {
+        if (trailer[1] != 1 || trailer[2] != (uint64_t)procs ||
+            trailer[3] != (uint64_t)myid ||
+            trailer[6] != (uint64_t)snapshot_window_count ||
+            trailer[7] != sizeof(star_t) || trailer[8] != sizeof(binary_t))
+            restart_io_fail("MPI count, rank, snapshot windows or executable ABI differs");
+        if (trailer[4] < 1 || trailer[5] < 1 || trailer[4] > INT_MAX || trailer[5] > INT_MAX)
+            restart_io_fail("invalid saved array capacities");
+        N_STAR_DIM_OPT = (long)trailer[4];
+        N_BIN_DIM_OPT = (long)trailer[5];
+    }
+    uint64_t expected_size = sizeof(struct rng_t113_state) + sizeof(restart_struct_t)
+        + sizeof(clus_struct_t) + (uint64_t)N_STAR_DIM_OPT*sizeof(star_t)
+        + (uint64_t)N_BIN_DIM_OPT*sizeof(binary_t)
+        + (uint64_t)snapshot_window_count*sizeof(int)
+        + (has_trailer ? sizeof(trailer) : 0);
+    if ((uint64_t)file_size != expected_size)
+        restart_io_fail("size mismatch: corrupt file, different MPI count, model or ABI");
+    rewind(my_restart_file);
+    star = calloc(N_STAR_DIM_OPT, sizeof(star_t));
+    binary = calloc(N_BIN_DIM_OPT, sizeof(binary_t));
+    curr_st = malloc(sizeof(struct rng_t113_state));
+    free(sigma_array.r); free(sigma_array.sigma);
+    sigma_array.r = calloc(N_STAR_DIM_OPT, sizeof(double));
+    sigma_array.sigma = calloc(N_STAR_DIM_OPT, sizeof(double));
+    if (!star || !binary || !curr_st || !sigma_array.r || !sigma_array.sigma)
+        restart_io_fail("allocation failed");
 
-	/*Set the units using the original data from the fits file*/
-	units_set();
-	
-	/*Load the entire star and binaries arrays at once.  Because this is done in
-	 * a single chunk of memory and with the same size of arrays as was
-	 * generated from the FITS file, this should load the exact local state into
-	 * each file*/
-	fread(curr_st, sizeof(struct rng_t113_state), 1, my_restart_file);
-	fread(&restart_struct, sizeof(restart_struct_t), 1, my_restart_file);
-	fread(&clus, sizeof(clus_struct_t), 1, my_restart_file);
-	fread(star, sizeof(star_t), N_STAR_DIM_OPT, my_restart_file);
-	fread(binary, sizeof(binary_t), N_BIN_DIM_OPT, my_restart_file);
-	fread(snapshot_window_counters, sizeof(int), snapshot_window_count, my_restart_file);
-
-	fclose(my_restart_file);
+    /* Original header metadata supplies physical units, not particle contents. */
+    units_set();
+    RESTART_READ(curr_st, sizeof(struct rng_t113_state), 1);
+    RESTART_READ(&restart_struct, sizeof(restart_struct_t), 1);
+    RESTART_READ(&clus, sizeof(clus_struct_t), 1);
+    RESTART_READ(star, sizeof(star_t), N_STAR_DIM_OPT);
+    RESTART_READ(binary, sizeof(binary_t), N_BIN_DIM_OPT);
+    RESTART_READ(snapshot_window_counters, sizeof(int), snapshot_window_count);
+    fclose(my_restart_file);
 
 	/*Set the random number generator back where it was*/
 	set_rng_t113(*curr_st);

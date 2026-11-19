@@ -207,6 +207,7 @@ void exit_cleanly_old(int signal)
 */
 void exit_cleanly(int signal, const char* fn)
 {
+    if (cmc_globals_shared()) MPI_Abort(MPI_COMM_WORLD, signal ? signal : 1);
 
 	close_buffers();
 	free_arrays();
@@ -229,7 +230,7 @@ void free_arrays(void){
 	free(star); free(binary);
 
 	/* MPI Stuff */
-	free(star_r); free(star_m); free(star_phi);
+	cmc_globals_free();
 //Probably not needed anymore
 //	free(new_size); free(disp); free(len);
 }
@@ -2008,7 +2009,7 @@ void bin_vars_calculate()
 */
 void calc_potential_new()
 {
-	potential_calculate();
+	cmc_globals_potential();
 
 	//MPI: Since N_MAX is updated here, we re-calculate the variables used for storing data partitioning related information.
 	mpiFindIndicesCustom( clus.N_MAX, MIN_CHUNK_SIZE, myid, &mpiBegin, &mpiEnd );
@@ -2279,8 +2280,8 @@ void post_sort_comm()
     //MPI: No idea why this is not working. Consult Wei-keng.
     //MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL, star_r, mpiLen, mpiDisp, MPI_DOUBLE, MPI_COMM_WORLD);
     //MPI_Allgatherv(MPI_IN_PLACE, mpiLen[myid], MPI_DOUBLE, star_m, mpiLen, mpiDisp, MPI_DOUBLE, MPI_COMM_WORLD);
-    MPI_Allgatherv(temp_r+1, mpiLen[myid], MPI_DOUBLE, star_r, mpiLen, mpiDisp, MPI_DOUBLE, MPI_COMM_WORLD);
-    MPI_Allgatherv(temp_m+1, mpiLen[myid], MPI_DOUBLE, star_m, mpiLen, mpiDisp, MPI_DOUBLE, MPI_COMM_WORLD);
+    cmc_globals_gather(CMC_GLOBAL_R, temp_r+1, mpiLen, mpiDisp);
+    cmc_globals_gather(CMC_GLOBAL_M, temp_m+1, mpiLen, mpiDisp);
 
 	MPI_Allreduce(MPI_IN_PLACE, &cenma.m_new, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);		
 	MPI_Allreduce(MPI_IN_PLACE, &cenma.E_new, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);		

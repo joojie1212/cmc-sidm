@@ -2275,3 +2275,16 @@ while(0)
 #endif
 #define MAX(a, b) ((a)>=(b)?(a):(b))
 #define MIN(a, b) ((a)<=(b)?(a):(b))
+
+/* Rank-local HDF5 initial conditions (independent, read-only access). */
+void cmc_read_local_header(void);
+void cmc_read_local_particles(void);
+
+/* Node-shared snapshot arrays with rank-private copy-on-write updates. */
+enum { CMC_GLOBAL_R, CMC_GLOBAL_M, CMC_GLOBAL_PHI };
+int cmc_globals_shared(void);
+void cmc_globals_allocate(void);
+void cmc_globals_gather(int which, const double *local, const int *counts, const int *displacements);
+void cmc_globals_potential(void);
+void cmc_globals_free(void);
+void cmc_globals_finalize(void);

@@ -384,3 +384,5 @@ _EXTERN_ double OVERWRITE_MCLUS;
 _EXTERN_ double *snapshot_windows;
 _EXTERN_ int *snapshot_window_counters;
 _EXTERN_ int snapshot_window_count;
+
+_EXTERN_ int INPUT_HDF5_LOCAL;
