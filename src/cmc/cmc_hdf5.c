@@ -108,7 +108,8 @@ static void unpack_object(long i, const double *x)
     for (int j = 0; j < 8; ++j)
         if (!isfinite(x[j])) input_fail("non-finite object value");
     cfd.obj_id[i] = input_integer(x[0], LONG_MAX);
-    cfd.obj_k[i] = (int)input_integer(x[1], INT_MAX);
+    /* DM is the sole negative physical type accepted by local input. */
+    cfd.obj_k[i] = x[1] == CMC_DM_TYPE ? CMC_DM_TYPE : (int)input_integer(x[1], INT_MAX);
     cfd.obj_m[i] = x[2]; cfd.obj_Reff[i] = x[3]; cfd.obj_r[i] = x[4];
     cfd.obj_vr[i] = x[5]; cfd.obj_vt[i] = x[6];
     cfd.obj_binind[i] = input_integer(x[7], cfd.NBINARY);
@@ -127,6 +128,8 @@ static void unpack_binary(long i, long file_row, const double *x)
         if (!isfinite(x[j])) input_fail("non-finite binary value");
     if (input_integer(x[0], cfd.NBINARY) != file_row)
         input_fail("binary index column does not match referenced file row");
+    if (x[2] == CMC_DM_TYPE || x[6] == CMC_DM_TYPE)
+        input_fail("DM particles cannot be binary components");
     cfd.bs_index[i] = file_row;
     cfd.bs_id1[i] = input_integer(x[1], LONG_MAX);
     cfd.bs_k1[i] = (int)input_integer(x[2], INT_MAX);

@@ -91,6 +91,8 @@
 
 /* extra star type */
 #define NOT_A_STAR (-100)
+/* Reserved input/snapshot type; never passed to SSE/BSE. */
+#define CMC_DM_TYPE (-200)
 
 /*Sourav: required for the preaging when STAR_AGING_SCHEME is emabled in Solar mass*/
 #define PREAGING_MASS 5.0
@@ -850,6 +852,12 @@ typedef struct{
 * @brief perform two-body relaxation (0=off, 1=on)
 */
 	int RELAXATION;
+#define PARAMDOC_SIDM_SIGMA_OVER_M "elastic isotropic DM cross section per mass [cm^2/g]; 0 disables SIDM"
+ int SIDM_SIGMA_OVER_M;
+#define PARAMDOC_SIDM_PMAX "maximum sampled-pair SIDM probability per timestep (0 < value <= 0.1)"
+ int SIDM_PMAX;
+#define PARAMDOC_SIDM_SHELL_SIZE "target number of DM particles per radial scattering shell (>=2)"
+ int SIDM_SHELL_SIZE;
 #define PARAMDOC_TIDALLY_STRIP_STARS "remove stars that pass beyond the tidal boundary"
 /**
 * @brief strip stars pass the tidal boundary (0 = off, 1=on[default]) 
@@ -1989,6 +1997,10 @@ double calc_n_local(long k, long p, long N_LIMIT);
 double calc_Ai_local(long k, long kp, long p, double W, long N_LIMIT);
 void calc_encounter_dyns(long k, long kp, double v[4], double vp[4], double w[4], double *W, double *rcm, double vcm[4], gsl_rng *rng, int setY);
 void set_star_EJ(long k);
+int is_dm(long k);
+void validate_dm(void);
+double sidm_timestep(void);
+void sidm_apply(double dt);
 void set_star_news(long k);
 void set_star_olds(long k);
 void zero_star(long j);

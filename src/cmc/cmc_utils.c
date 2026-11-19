@@ -2148,6 +2148,8 @@ void calc_timestep(gsl_rng *rng)
 		Dt = Prev_Dt * 1.1;
 	}
 
+	double dt_sidm = sidm_timestep();
+	Dt = MIN(Dt, dt_sidm);
 	TotalTime += Dt;
 }
 
@@ -2188,7 +2190,7 @@ void toy_rejuvenation()
 	DMrejuv = 0.0;
 	if (STAR_AGING_SCHEME > 0) {
 		for (i=1; i<=mpiEnd-mpiBegin+1; i++)
-			remove_old_star(TotalTime, i);
+			if (!is_dm(i)) remove_old_star(TotalTime, i);
 	}
 }
 

@@ -2595,12 +2595,14 @@ double simul_relax_new(void)
 		Mave = 0.0;
 		M2ave = 0.0;
 		for (k=simin; k<=simax; k++) {
+            if (is_dm(k)) continue;
 			j = get_global_idx(k);
 			double tmp = star_m[j] * madhoc;
 			Mv2ave += tmp * (sqr(star[k].vr) + sqr(star[k].vt));
 			Mave += tmp;
 			M2ave += sqr(tmp);
 		}
+        if (Mave == 0.0) continue; /* no stellar relaxation in this bin */
 		//OPT: Remove double?
 		Mv2ave /= (double) (2 * p);
 		Mave /= (double) (2 * p);

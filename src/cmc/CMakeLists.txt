@@ -3,7 +3,7 @@ add_executable(cmc cmc.c)
 # add library
 add_library(cmc_library STATIC cmc_bhlosscone.c cmc_binbin.c cmc_binsingle.c cmc_core.c
               cmc_dynamics.c cmc_dynamics_helper.c cmc_bse_utils.c
-              cmc_evolution_thr.c cmc_fits.c cmc_hdf5.c cmc_shared_globals.c
+              cmc_evolution_thr.c cmc_fits.c cmc_sidm.c cmc_hdf5.c cmc_shared_globals.c
               cmc_io.c cmc_nr.c cmc_orbit.c
               cmc_remove_star.c cmc_search_grid.c cmc_sort.c cmc_sscollision.c
               cmc_stellar_evolution.c cmc_utils.c cmc_mpi.c)

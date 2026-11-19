@@ -63,7 +63,7 @@ def config(path, inputfile, steps=4, **extra):
         THREEBODYBINARIES=0, ONLY_FORM_BH_THREEBODYBINARIES=0,
         BINBIN=0,BINSINGLE=0,SS_COLLISION=0,TIDAL_CAPTURE=0,TC_POLYTROPE=0,
         BH_CAPTURE=0,SAMPLESIZE=32)
-    opts.update(extra); text=template
+    opts.update(extra); text=re.sub(r'^SIDM_\w+\s*=.*\n', '', template, flags=re.M)
     for k,v in opts.items():
         text,count=re.subn(r'^'+k+r'\s*=.*$',f'{k} = {v}',text,flags=re.M)
         if not count: text=text.replace('[cmc]',f'[cmc]\n{k} = {v}',1)

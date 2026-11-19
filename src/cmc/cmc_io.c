@@ -1159,6 +1159,18 @@ if(myid==0) {
 				PRINT_PARSED(PARAMDOC_RELAXATION);
 				sscanf(values, "%ld", &RELAXATION);
 				parsed.RELAXATION = 1;
+            } else if (strcmp(parameter_name, "SIDM_SIGMA_OVER_M") == 0) {
+                PRINT_PARSED(PARAMDOC_SIDM_SIGMA_OVER_M);
+                if (sscanf(values, "%lf", &SIDM_SIGMA_OVER_M) != 1) MPI_Abort(MPI_COMM_WORLD, 1);
+                parsed.SIDM_SIGMA_OVER_M = 1;
+            } else if (strcmp(parameter_name, "SIDM_PMAX") == 0) {
+                PRINT_PARSED(PARAMDOC_SIDM_PMAX);
+                if (sscanf(values, "%lf", &SIDM_PMAX) != 1) MPI_Abort(MPI_COMM_WORLD, 1);
+                parsed.SIDM_PMAX = 1;
+            } else if (strcmp(parameter_name, "SIDM_SHELL_SIZE") == 0) {
+                PRINT_PARSED(PARAMDOC_SIDM_SHELL_SIZE);
+                if (sscanf(values, "%d", &SIDM_SHELL_SIZE) != 1) MPI_Abort(MPI_COMM_WORLD, 1);
+                parsed.SIDM_SHELL_SIZE = 1;
 			} else if (strcmp(parameter_name, "TIDALLY_STRIP_STARS") == 0) {
 				PRINT_PARSED(PARAMDOC_TIDALLY_STRIP_STARS);
 				sscanf(values, "%ld", &TIDALLY_STRIP_STARS);
@@ -1711,6 +1723,9 @@ if(myid==0) {
 	CHECK_PARSED(PERTURB, 1, PARAMDOC_PERTURB);
 	CHECK_PARSED(TT_FILE, NULL, PARAMDOC_TT_FILE);
 	CHECK_PARSED(RELAXATION, 1, PARAMDOC_RELAXATION);
+ CHECK_PARSED(SIDM_SIGMA_OVER_M, 0.0, PARAMDOC_SIDM_SIGMA_OVER_M);
+ CHECK_PARSED(SIDM_PMAX, 0.05, PARAMDOC_SIDM_PMAX);
+ CHECK_PARSED(SIDM_SHELL_SIZE, 32, PARAMDOC_SIDM_SHELL_SIZE);
 	CHECK_PARSED(TIDALLY_STRIP_STARS, 1, PARAMDOC_TIDALLY_STRIP_STARS);
 	CHECK_PARSED(THETASEMAX, 1.412, PARAMDOC_THETASEMAX);
 	CHECK_PARSED(STELLAR_EVOLUTION, 0, PARAMDOC_STELLAR_EVOLUTION);

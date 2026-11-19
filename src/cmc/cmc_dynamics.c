@@ -101,6 +101,7 @@ void dynamics_apply(double dt, gsl_rng *rng)
 					shuffle_three_masses(sq, &k1, &k2, &k3, rng);
 				}
 				//sort_three_masses(sq, &k1, &k2, &k3);
+				if (is_dm(k1) || is_dm(k2) || is_dm(k3)) continue;
 				n_local = calc_n_local(get_global_idx(k1), BH_AVEKERNEL, N_LIMIT);
 				// If density above threshold, check for 3bb formation
 				if (n_local > n_threshold) {
@@ -230,6 +231,10 @@ are skipped if they already interacted in 3bb loop!  */
 		kp = si; // object 2 for interaction
 		si += 1; // iterate for the next interaction
 
+        /* Keep sampling from all objects: rejecting mixed pairs supplies the
+         * stellar fraction for the existing total-number-density estimator.
+         * Re-pairing only stars would require a different density estimator. */
+        if (is_dm(k) || is_dm(kp)) continue;
 		/* The indices for the 2 stars that will interact are k and kp  */
 		g_k = get_global_idx(k);
 		g_kp = get_global_idx(kp);
@@ -534,10 +539,10 @@ are skipped if they already interacted in 3bb loop!  */
         maverelbeta[i] = buf_comm_dbl_recv[1][i];
         raverelbeta[i] = buf_comm_dbl_recv[2][i];
 		pararootfprintf(relaxationfile, " %g %g %g %g", 
-				((double) Nrelbeta[i])/((double) Nrel), 
-				qaverelbeta[i]/((double) Nrelbeta[i]),
-				maverelbeta[i]/((double) Nrelbeta[i]),
-				raverelbeta[i]/((double) Nrelbeta[i]));
+				(Nrel ? ((double) Nrelbeta[i])/((double) Nrel) : 0.0),
+				(Nrelbeta[i] ? qaverelbeta[i]/((double) Nrelbeta[i]) : 0.0),
+				(Nrelbeta[i] ? maverelbeta[i]/((double) Nrelbeta[i]) : 0.0),
+				(Nrelbeta[i] ? raverelbeta[i]/((double) Nrelbeta[i]) : 0.0));
 	}
 	pararootfprintf(relaxationfile, "\n");
 

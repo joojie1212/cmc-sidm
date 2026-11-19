@@ -22,6 +22,10 @@
 * @param s_k source index in the cfd structure from where data needs to be copied
 */
 void load_binary_data(int d_k, int s_k) {
+        if (d_k > 0 && (cfd.bs_k1[s_k] == CMC_DM_TYPE || cfd.bs_k2[s_k] == CMC_DM_TYPE)) {
+            fprintf(stderr, "DM particles cannot be binary components\n");
+            MPI_Abort(MPI_COMM_WORLD, 1);
+        }
 		binary[d_k].id1 = cfd.bs_id1[s_k];
 		binary[d_k].id2 = cfd.bs_id2[s_k];
 		if (binary[d_k].id1 > newstarid) {
@@ -98,6 +102,15 @@ void load_fits_file_data(void)
 
 		star[i].m = cfd.obj_m[g_i] * ((double) clus.N_STAR);
 		star[i].r = cfd.obj_r[g_i];
+        if (i > 0 && is_dm(i)) {
+            if (star[i].binind) {
+                fprintf(stderr, "DM particles must be single objects\n");
+                MPI_Abort(MPI_COMM_WORLD, 1);
+            }
+            star[i].rad = 0.0;
+            star[i].lifetime = GSL_POSINF;
+            continue;
+        }
 		/*Sourav: putting creation time and lifetime as a variable*/
 		/*Sourav: this is ongoing changes*/
 		if (!star[i].binind){

@@ -6,8 +6,10 @@ storage semantics, memory accounting and deployment of the combined version.
 
 This change is based on original CMC commit
 `e919b447cd1d5d2b855e1d57c716219c207560fb`, with the previously added
-DM/SIDM and NO_BH_BINARIES extensions removed from the active source tree.
-The original physics algorithms are retained. The current HDF5 input format
+DM/SIDM and NO_BH_BINARIES extensions initially removed from the active source tree.
+In this cmc-sidm repository, SIDM has been reintroduced separately; see
+[DM_SIDM.rst](DM_SIDM.rst). The NO_BH_BINARIES extension is not included.
+The original stellar/BH physics algorithms are retained. The current HDF5 input format
 and INI files do not need conversion or a new runtime flag.
 
 ## Backup and rollback

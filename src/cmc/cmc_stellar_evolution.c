@@ -220,6 +220,7 @@ void stellar_evolution_init(void){
   dprintf("se_init: %g %g %g %d %g %g %g %d %d %d %d %d %d %g %d %g %g %g %g %g %g\n", BSE_NETA, BSE_BWIND, BSE_HEWIND, BSE_WINDFLAG, BSE_PISN, BSE_ALPHA1, BSE_LAMBDAF, BSE_CEFLAG, BSE_TFLAG, BSE_IFFLAG, BSE_WDFLAG, BSE_RTMSFLAG, BSE_BHFLAG, BSE_REMNANTFLAG, BSE_MXNS, BSE_IDUM, BSE_SIGMA, BSE_BHSIGMAFRAC, BSE_BETA, BSE_EDDFAC, BSE_GAMMA, BSE_POLAR_KICK_ANGLE);
 
   for (k=1; k<=mpiEnd-mpiBegin+1; k++) {
+    if (is_dm(k)) continue;
     long g_k = get_global_idx(k);
 
     if (star[k].binind == 0) { /* single star */
@@ -418,6 +419,7 @@ void do_stellar_evolution(gsl_rng *rng)
 
   //MPI: The serial version runs till N_MAX_NEW+1 to account for the sentinel. But in the parallel version, there is no sentinel, so runs only till N_MAX_NEW.
   for(k=1; k<=clus.N_MAX_NEW; k++){ 
+    if (is_dm(k)) continue;
 
     int g_k = get_global_idx(k);
     if (star[k].binind == 0) { /* single star */

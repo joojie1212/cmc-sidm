@@ -138,6 +138,8 @@ int main(int argc, char *argv[])
 
 	}
 
+	validate_dm();
+
 	/* Load the optional tidal tensor or dynamical friction files */
 	if(USE_TT_FILE){
 		load_tidal_tensor();
@@ -273,6 +275,8 @@ int main(int argc, char *argv[])
 		/* Perturb velocities of all N_MAX stars. 
 		 * Using sr[], sv[], get NEW E, J for all stars */
 		tmpTimeStart = timeStartSimple();
+        /* SIDM is independent of the stellar PERTURB/RELAXATION switches. */
+        sidm_apply(Dt);
 		if (PERTURB > 0)
 			dynamics_apply(Dt, rng);
 		timeEndSimple(tmpTimeStart, &t_dyn);
