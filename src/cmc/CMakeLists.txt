@@ -21,7 +21,10 @@ include_directories(SYSTEM ${HDF5_INCLUDE_DIRS})
 # -Wl,--no-relax is GNU ld only; Apple ld rejects it. Needed on some HPC Linux builds
 # to avoid long-range branch errors when linking large Fortran objects.
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
-    SET( CMAKE_C_FLAGS "-Wl,--no-relax" )
+    # Keep the top-level C dialect and user-supplied compiler flags. Replacing
+    # CMAKE_C_FLAGS here drops -std=gnu17 and breaks legacy prototypes on GCC 15.
+    # LINK_FLAGS is compatible with our CMake 3.12 minimum.
+    set_property(TARGET cmc APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--no-relax")
 endif()
 target_compile_options(cmc PRIVATE ${MPI_COMPILE_FLAGS})
 
