@@ -1,3 +1,6 @@
+# cmc-sidm
+This is a sidm code using cmc
+
 # The Cluster Monte Carlo Code, CMC-COSMIC
 A Henon style orbit-averaging code for collisional stellar dynamics, with all the necessary physics for modeling the long-term evolution of dense star clusters.  
 
