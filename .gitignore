@@ -108,3 +108,15 @@ ENV/
 
 # macOs hidden system files
 .DS_Store
+
+# Local simulations, builds and installation products
+/build*/
+/install*/
+/CMC/
+/CMC-*/
+/runs/
+/analysis/
+/local-backups/
+/releases/
+/tests/**/validation/
+*.restart.*.bin
